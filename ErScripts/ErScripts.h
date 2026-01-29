@@ -79,6 +79,7 @@ private:
         FileMonitor monitor(consoleLog);
         monitor.start();
         while (!globals::finish) {
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
 			ConsoleLogStream(monitor);
             std::this_thread::sleep_for(std::chrono::microseconds(15625));
             CS2Binds();
@@ -92,7 +93,6 @@ private:
             AutoAccept();
             std::this_thread::sleep_for(std::chrono::microseconds(15625));
             AntiAfk();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
         }
         ReleaseDC(nullptr, hScreenDC);
         monitor.stop();
@@ -111,19 +111,19 @@ private:
 
         while (!globals::finish) {
             AutoStop();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             RoundStartAlert(m_soundround);
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             KillSound(m_soundkill);
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             BombTimer();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             KillSay();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             KnifeSwitch();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
             AutoPistol();
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            std::this_thread::sleep_for(std::chrono::microseconds(9000));
         }
 	}
 };
