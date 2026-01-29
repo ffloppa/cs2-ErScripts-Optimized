@@ -1,11 +1,7 @@
 #include "ErScripts.h"
 
+const std::vector<int> blackColor = { 0, 0, 0 };
 void ErScripts::Crosshair() {
-    std::thread([this]() {
-        std::vector<int> blackColor = { 0, 0, 0 };
-        bool oldRecoilCrosshairState = false;
-
-        while (!globals::finish) {
             if (ErScripts::GetWindowState() && ErScripts::GetCursorState()) {
 
                 // No longer needed because the print_changed_convars command is used for it
@@ -78,7 +74,4 @@ void ErScripts::Crosshair() {
                 //}
 
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
-        }
-    }).detach();
 }

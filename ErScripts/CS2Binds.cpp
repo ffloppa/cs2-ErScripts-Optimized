@@ -1,8 +1,6 @@
 #include "ErScripts.h"
 
 void ErScripts::CS2Binds() {
-    std::thread([]() {
-        while (!globals::finish) {
             if (ErScripts::GetWindowState() && ErScripts::GetCursorState()) {
                 if (cfg->longJumpBind) {
                     if (GetAsyncKeyState(cfg->longJumpBind) & 0x8000) {
@@ -67,8 +65,4 @@ void ErScripts::CS2Binds() {
                     }
                 }
             }
-
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
-        }
-    }).detach();
 }

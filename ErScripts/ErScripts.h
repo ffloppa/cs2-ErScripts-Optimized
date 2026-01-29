@@ -7,11 +7,13 @@
 #include "Globals.h"
 #include <windows.h>
 #include <string>
+#include "SimpleSound.h"
+#include "SoundsShellcodes.h"
 
 class ErScripts {
 public:
     void Initalization();
-    void ConsoleLogStream();
+    void ConsoleLogStream(FileMonitor& monitor);
     static const bool GetCursorState();
     static const bool GetWindowState();
     static const void GetWindowInfo(int& width, int& height, int& posX, int& posY);
@@ -29,10 +31,12 @@ public:
     void AntiAfk();
     void CS2Binds();
     void KillSay();
-    void KillSound();
-    void RoundStartAlert();
+    void KillSound(SimpleSound& sound);
+    void RoundStartAlert(SimpleSound& sound);
     void AutoStop();
     void ChatSpammer();
+	std::thread highUpdateThread;
+	std::thread lowUpdateThread;
 private:
     static HWND hwnd;
 
@@ -50,4 +54,76 @@ private:
 
     const std::vector<int> GetPixelColor(int x, int y);
     const bool isColorSimilar(const std::vector<int>& color, const std::vector<int>& targetColor, int range);
+
+    std::string lastCustomFile;
+    int oldKills;
+    int oldKillsSay;
+    int oldKillsSound;
+    bool oldKnifeState = false;
+    bool oldRoundStartState = false;
+    HDC hScreenDC;
+    bool oldRecoilCrosshairState = false;
+
+	// AutoStop members
+    std::vector<int> recentDelays;
+    bool aWasPressed = false;
+    bool dWasPressed = false;
+
+    bool state = false;
+    bool statePrev = false;
+
+    std::wsmatch match;
+    SteamTools::Config config_default;
+
+    void onHighUpdate() {
+        FileMonitor monitor(consoleLog);
+        monitor.start();
+        while (!globals::finish) {
+			ConsoleLogStream(monitor);
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            CS2Binds();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+			PixelTrigger();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            Crosshair();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            RGBCrosshair();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            AutoAccept();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            AntiAfk();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+        }
+        ReleaseDC(nullptr, hScreenDC);
+        monitor.stop();
+    }
+
+    void onLowUpdate() {
+        SimpleSound m_soundround = SimpleSound(alertSound, alertSoundLen);
+        m_soundround.secondBuffer(cfg->roundStartAlertFileName);
+        lastCustomFile = cfg->roundStartAlertFileName;
+        oldRoundStartState = globals::roundStartState;
+
+        SimpleSound m_soundkill = SimpleSound(hitSound, hitSoundLen);
+        m_soundkill.secondBuffer(cfg->killSoundFileName);
+        lastCustomFile = cfg->killSoundFileName;
+        oldKillsSound = globals::localPlayerKills;
+
+        while (!globals::finish) {
+            AutoStop();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            RoundStartAlert(m_soundround);
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            KillSound(m_soundkill);
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            BombTimer();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            KillSay();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            KnifeSwitch();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+            AutoPistol();
+            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+        }
+	}
 };

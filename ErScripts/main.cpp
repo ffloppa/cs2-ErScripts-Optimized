@@ -72,27 +72,17 @@ int main(int argc, char* argv[]) {
     GSIServer gsi;
     gsi.run();
 
-    es.ConsoleLogStream();
-    es.AutoAccept();
-    es.BombTimer();
-    es.KillSound();
-    es.RoundStartAlert();
     es.InitBinds();
-    es.PixelTrigger();
-    es.Crosshair();
-    es.RGBCrosshair();
-    es.KnifeSwitch();
-    es.AutoPistol();
-    es.AntiAfk();
-    es.CS2Binds();
-    es.KillSay();
-    es.AutoStop();
-    es.ChatSpammer();
-
     while (!globals::finish) {
         static int prevExitBind = cfg->erScriptsExitBind;
         static std::chrono::steady_clock::time_point changeTime;
         static bool isDelayActive = false;
+
+        bool chatSpammerActive = false;
+        if (cfg->chatSpammerState && !chatSpammerActive) {
+            es.ChatSpammer();
+            chatSpammerActive = true;
+        }
 
         if (prevExitBind != cfg->erScriptsExitBind) {
             prevExitBind = cfg->erScriptsExitBind;
@@ -135,6 +125,7 @@ int main(int argc, char* argv[]) {
     }
 
     gsi.stop();
-
-    exit(0);
+	es.lowUpdateThread.join();
+    es.highUpdateThread.join();
+    return 1;
 }

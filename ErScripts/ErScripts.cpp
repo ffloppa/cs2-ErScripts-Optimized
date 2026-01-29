@@ -80,146 +80,135 @@ void ErScripts::Initalization() {
     Logger::logSuccess(std::format("Steam nickname Found: {}", globals::nickname));
 
     Logger::logSuccess("CS2 initialization completed successfully");
+
+	highUpdateThread = std::thread(&ErScripts::onHighUpdate, this);
+	lowUpdateThread = std::thread(&ErScripts::onLowUpdate, this);
+
+    config_default.gap = -2.2f;                      // cl_crosshairgap
+    config_default.outlineThickness = 1.0f;          // cl_crosshair_outlinethickness
+    config_default.red = 0;                             // cl_crosshaircolor_r
+    config_default.green = 255;                         // cl_crosshaircolor_g
+    config_default.blue = 0;                         // cl_crosshaircolor_b
+    config_default.alpha = 200;                         // cl_crosshairalpha
+    //config_default.dynamicSplitDist = 3;             // cl_crosshair_dynamic_splitdist
+    //config_default.fixedCrosshairGap = 3.0f;         // cl_fixedcrosshairgap
+    config_default.color = 5;                         // cl_crosshaircolor
+    config_default.drawOutline = true;                 // cl_crosshair_drawoutline
+    //config_default.dynamicSplitAlphaInnerMod = 0.0f; // cl_crosshair_dynamic_splitalpha_innermod
+    //config_default.dynamicSplitAlphaOuterMod = 1.0f; // cl_crosshair_dynamic_splitalpha_outermod
+    //config_default.dynamicMaxDistSplitRatio = 1.0f;  // cl_crosshair_dynamic_maxdist_splitratio
+    config_default.thickness = 0.6f;                 // cl_crosshairthickness
+    config_default.dot = false;                         // cl_crosshairdot
+    //config_default.gapUseWeaponValue = true;         // cl_crosshairgap_useweaponvalue
+    //config_default.useAlpha = true;                     // cl_crosshairusealpha
+    config_default.tStyle = false;                     // cl_crosshair_t
+    config_default.style = 2;                         // cl_crosshairstyle
+    config_default.size = 3.9f;                          // cl_crosshairsize
+    config_default.sensitivity = 1.25f;              // sensitivity
+    config_default.zoomSensitivity = 1.0f;           // zoom_sensitivity_ratio
+    config_default.yaw = 0.022f;                     // m_yaw
 }
 
-void ErScripts::ConsoleLogStream() {
-    std::thread([this]() {
-        FileMonitor monitor(consoleLog);
-        monitor.start();
-        Logger::logInfo("Start CS2 console.log monitoring");
-
-        SteamTools::Config config_default;
-        config_default.gap = -2.2f;                      // cl_crosshairgap
-        config_default.outlineThickness = 1.0f;          // cl_crosshair_outlinethickness
-        config_default.red = 0;                             // cl_crosshaircolor_r
-        config_default.green = 255;                         // cl_crosshaircolor_g
-        config_default.blue = 0;                         // cl_crosshaircolor_b
-        config_default.alpha = 200;                         // cl_crosshairalpha
-        //config_default.dynamicSplitDist = 3;             // cl_crosshair_dynamic_splitdist
-        //config_default.fixedCrosshairGap = 3.0f;         // cl_fixedcrosshairgap
-        config_default.color = 5;                         // cl_crosshaircolor
-        config_default.drawOutline = true;                 // cl_crosshair_drawoutline
-        //config_default.dynamicSplitAlphaInnerMod = 0.0f; // cl_crosshair_dynamic_splitalpha_innermod
-        //config_default.dynamicSplitAlphaOuterMod = 1.0f; // cl_crosshair_dynamic_splitalpha_outermod
-        //config_default.dynamicMaxDistSplitRatio = 1.0f;  // cl_crosshair_dynamic_maxdist_splitratio
-        config_default.thickness = 0.6f;                 // cl_crosshairthickness
-        config_default.dot = false;                         // cl_crosshairdot
-        //config_default.gapUseWeaponValue = true;         // cl_crosshairgap_useweaponvalue
-        //config_default.useAlpha = true;                     // cl_crosshairusealpha
-        config_default.tStyle = false;                     // cl_crosshair_t
-        config_default.style = 2;                         // cl_crosshairstyle
-        config_default.size = 3.9f;                          // cl_crosshairsize
-        config_default.sensitivity = 1.25f;              // sensitivity
-        config_default.zoomSensitivity = 1.0f;           // zoom_sensitivity_ratio
-        config_default.yaw = 0.022f;                     // m_yaw
-
+void ErScripts::ConsoleLogStream(FileMonitor& monitor) {
         std::wregex regexPing(LR"(latency (\d+) msec)");
-        std::wsmatch match;
 
-        while (!globals::finish) {
-            if (auto newLines = monitor.getNewLines()) {
-                if (newLines && !(*newLines).empty() && (*newLines).size() >= 3) {
-                    // Ensure there are at least 3 lines before trying to access them
-                    std::wstring combined = (*newLines)[0] + (*newLines)[1] + (*newLines)[2];
+        if (auto newLines = monitor.getNewLines()) {
+            if (newLines && !(*newLines).empty() && (*newLines).size() >= 3) {
+                // Ensure there are at least 3 lines before trying to access them
+                std::wstring combined = (*newLines)[0] + (*newLines)[1] + (*newLines)[2];
 
-                    if (combined.find(L"ConVars (non-default):") != std::wstring::npos) {
-                        std::wregex convarPattern(L"^\\S+ \\S+\\s+(\\S+)\\s+(\\S+)\\s+\\S+$");
-                        std::wstring foundConVars = L"";
+                if (combined.find(L"ConVars (non-default):") != std::wstring::npos) {
+                    std::wregex convarPattern(L"^\\S+ \\S+\\s+(\\S+)\\s+(\\S+)\\s+\\S+$");
+                    std::wstring foundConVars = L"";
 
-                        for (const auto& line : *newLines) {
-                            // Parse and extract crosshair variables from the line
-                            std::wsmatch matches;
-                            if (std::regex_search(line, matches, convarPattern)) {
-                                std::wstring varName = matches[1];
-                                std::wstring value = matches[2];
-                                foundConVars += varName + L"\n";
+                    for (const auto& line : *newLines) {
+                        // Parse and extract crosshair variables from the line
+                        std::wsmatch matches;
+                        if (std::regex_search(line, matches, convarPattern)) {
+                            std::wstring varName = matches[1];
+                            std::wstring value = matches[2];
+                            foundConVars += varName + L"\n";
 
-                                //Logger::logInfo(std::format(L"Found ConVar: {} {}", varName, value));
+                            //Logger::logInfo(std::format(L"Found ConVar: {} {}", varName, value));
 
-                                try {
-                                    if (varName == L"cl_crosshairgap") globals::config->gap = std::stof(value);
-                                    else if (varName == L"cl_crosshair_outlinethickness") globals::config->outlineThickness = std::stof(value);
-                                    else if (varName == L"cl_crosshaircolor_r") globals::config->red = static_cast<uint8_t>(std::stoi(value));
-                                    else if (varName == L"cl_crosshaircolor_g") globals::config->green = static_cast<uint8_t>(std::stoi(value));
-                                    else if (varName == L"cl_crosshaircolor_b") globals::config->blue = static_cast<uint8_t>(std::stoi(value));
-                                    else if (varName == L"cl_crosshairalpha") globals::config->alpha = static_cast<uint8_t>(std::stoi(value));
-                                    //else if (varName == L"cl_crosshair_dynamic_splitdist") globals::config->dynamicSplitDist = static_cast<uint8_t>(std::stoi(value));
-                                    //else if (varName == L"cl_fixedcrosshairgap") globals::config->fixedCrosshairGap = std::stof(value);
-                                    else if (varName == L"cl_crosshaircolor") globals::config->color = static_cast<uint8_t>(std::stoi(value));
-                                    else if (varName == L"cl_crosshair_drawoutline") globals::config->drawOutline = (value == L"true" || value == L"1");
-                                    //else if (varName == L"cl_crosshair_dynamic_splitalpha_innermod") globals::config->dynamicSplitAlphaInnerMod = std::stof(value);
-                                    //else if (varName == L"cl_crosshair_dynamic_splitalpha_outermod") globals::config->dynamicSplitAlphaOuterMod = std::stof(value);
-                                    //else if (varName == L"cl_crosshair_dynamic_maxdist_splitratio") globals::config->dynamicMaxDistSplitRatio = std::stof(value);
-                                    else if (varName == L"cl_crosshairthickness") globals::config->thickness = std::stof(value);
-                                    else if (varName == L"cl_crosshairdot") globals::config->dot = (value == L"true" || value == L"1");
-                                    //else if (varName == L"cl_crosshairgap_useweaponvalue") globals::config->gapUseWeaponValue = (value == L"true" || value == L"1");
-                                    //else if (varName == L"cl_crosshairusealpha") globals::config->useAlpha = (value == L"true" || value == L"1");
-                                    else if (varName == L"cl_crosshair_t") globals::config->tStyle = (value == L"true" || value == L"1");
-                                    else if (varName == L"cl_crosshairstyle") globals::config->style = static_cast<uint8_t>(std::stoi(value));
-                                    else if (varName == L"cl_crosshairsize") globals::config->size = std::stof(value);
-                                    else if (varName == L"sensitivity") globals::config->sensitivity = std::stof(value);
-                                    else if (varName == L"zoom_sensitivity_ratio") globals::config->zoomSensitivity = std::stof(value);
-                                    else if (varName == L"m_yaw") globals::config->yaw = std::stof(value);
-                                }
-                                catch (const std::exception& e) {
-                                    std::wcout << L"Error parsing " << varName << L": " << e.what() << L"\n";
-                                }
+                            try {
+                                if (varName == L"cl_crosshairgap") globals::config->gap = std::stof(value);
+                                else if (varName == L"cl_crosshair_outlinethickness") globals::config->outlineThickness = std::stof(value);
+                                else if (varName == L"cl_crosshaircolor_r") globals::config->red = static_cast<uint8_t>(std::stoi(value));
+                                else if (varName == L"cl_crosshaircolor_g") globals::config->green = static_cast<uint8_t>(std::stoi(value));
+                                else if (varName == L"cl_crosshaircolor_b") globals::config->blue = static_cast<uint8_t>(std::stoi(value));
+                                else if (varName == L"cl_crosshairalpha") globals::config->alpha = static_cast<uint8_t>(std::stoi(value));
+                                //else if (varName == L"cl_crosshair_dynamic_splitdist") globals::config->dynamicSplitDist = static_cast<uint8_t>(std::stoi(value));
+                                //else if (varName == L"cl_fixedcrosshairgap") globals::config->fixedCrosshairGap = std::stof(value);
+                                else if (varName == L"cl_crosshaircolor") globals::config->color = static_cast<uint8_t>(std::stoi(value));
+                                else if (varName == L"cl_crosshair_drawoutline") globals::config->drawOutline = (value == L"true" || value == L"1");
+                                //else if (varName == L"cl_crosshair_dynamic_splitalpha_innermod") globals::config->dynamicSplitAlphaInnerMod = std::stof(value);
+                                //else if (varName == L"cl_crosshair_dynamic_splitalpha_outermod") globals::config->dynamicSplitAlphaOuterMod = std::stof(value);
+                                //else if (varName == L"cl_crosshair_dynamic_maxdist_splitratio") globals::config->dynamicMaxDistSplitRatio = std::stof(value);
+                                else if (varName == L"cl_crosshairthickness") globals::config->thickness = std::stof(value);
+                                else if (varName == L"cl_crosshairdot") globals::config->dot = (value == L"true" || value == L"1");
+                                //else if (varName == L"cl_crosshairgap_useweaponvalue") globals::config->gapUseWeaponValue = (value == L"true" || value == L"1");
+                                //else if (varName == L"cl_crosshairusealpha") globals::config->useAlpha = (value == L"true" || value == L"1");
+                                else if (varName == L"cl_crosshair_t") globals::config->tStyle = (value == L"true" || value == L"1");
+                                else if (varName == L"cl_crosshairstyle") globals::config->style = static_cast<uint8_t>(std::stoi(value));
+                                else if (varName == L"cl_crosshairsize") globals::config->size = std::stof(value);
+                                else if (varName == L"sensitivity") globals::config->sensitivity = std::stof(value);
+                                else if (varName == L"zoom_sensitivity_ratio") globals::config->zoomSensitivity = std::stof(value);
+                                else if (varName == L"m_yaw") globals::config->yaw = std::stof(value);
+                            }
+                            catch (const std::exception& e) {
+                                std::wcout << L"Error parsing " << varName << L": " << e.what() << L"\n";
                             }
                         }
+                    }
 
-                        // Apply defaults for missing parameters
-                        if (foundConVars.find(L"cl_crosshairgap\n") == std::wstring::npos) globals::config->gap = config_default.gap;
-                        if (foundConVars.find(L"cl_crosshair_outlinethickness\n") == std::wstring::npos) globals::config->outlineThickness = config_default.outlineThickness;
-                        if (foundConVars.find(L"cl_crosshaircolor_r\n") == std::wstring::npos) globals::config->red = config_default.red;
-                        if (foundConVars.find(L"cl_crosshaircolor_g\n") == std::wstring::npos) globals::config->green = config_default.green;
-                        if (foundConVars.find(L"cl_crosshaircolor_b\n") == std::wstring::npos) globals::config->blue = config_default.blue;
-                        if (foundConVars.find(L"cl_crosshairalpha\n") == std::wstring::npos) globals::config->alpha = config_default.alpha;
-                        //if (foundConVars.find(L"cl_crosshair_dynamic_splitdist\n") == std::wstring::npos) globals::config->dynamicSplitDist = config_default.dynamicSplitDist;
-                        //if (foundConVars.find(L"cl_fixedcrosshairgap\n") == std::wstring::npos) globals::config->fixedCrosshairGap = config_default.fixedCrosshairGap;
-                        if (foundConVars.find(L"cl_crosshaircolor\n") == std::wstring::npos) globals::config->color = config_default.color;
-                        if (foundConVars.find(L"cl_crosshair_drawoutline\n") == std::wstring::npos) globals::config->drawOutline = config_default.drawOutline;
-                        //if (foundConVars.find(L"cl_crosshair_dynamic_splitalpha_innermod\n") == std::wstring::npos) globals::config->dynamicSplitAlphaInnerMod = config_default.dynamicSplitAlphaInnerMod;
-                        //if (foundConVars.find(L"cl_crosshair_dynamic_splitalpha_outermod\n") == std::wstring::npos) globals::config->dynamicSplitAlphaOuterMod = config_default.dynamicSplitAlphaOuterMod;
-                        //if (foundConVars.find(L"cl_crosshair_dynamic_maxdist_splitratio\n") == std::wstring::npos) globals::config->dynamicMaxDistSplitRatio = config_default.dynamicMaxDistSplitRatio;
-                        if (foundConVars.find(L"cl_crosshairthickness\n") == std::wstring::npos) globals::config->thickness = config_default.thickness;
-                        if (foundConVars.find(L"cl_crosshairdot\n") == std::wstring::npos) globals::config->dot = config_default.dot;
-                        //if (foundConVars.find(L"cl_crosshairgap_useweaponvalue\n") == std::wstring::npos) globals::config->gapUseWeaponValue = config_default.gapUseWeaponValue;
-                        //if (foundConVars.find(L"cl_crosshairusealpha\n") == std::wstring::npos) globals::config->useAlpha = config_default.useAlpha;
-                        if (foundConVars.find(L"cl_crosshair_t\n") == std::wstring::npos) globals::config->tStyle = config_default.tStyle;
-                        if (foundConVars.find(L"cl_crosshairstyle\n") == std::wstring::npos) globals::config->style = config_default.style;
-                        if (foundConVars.find(L"cl_crosshairsize\n") == std::wstring::npos) globals::config->size = config_default.size;
-                        if (foundConVars.find(L"sensitivity\n") == std::wstring::npos) globals::config->sensitivity = config_default.sensitivity;
-                        if (foundConVars.find(L"zoom_sensitivity_ratio\n") == std::wstring::npos) globals::config->zoomSensitivity = config_default.zoomSensitivity;
-                        if (foundConVars.find(L"m_yaw\n") == std::wstring::npos) globals::config->yaw = config_default.yaw;
+                    // Apply defaults for missing parameters
+                    if (foundConVars.find(L"cl_crosshairgap\n") == std::wstring::npos) globals::config->gap = config_default.gap;
+                    if (foundConVars.find(L"cl_crosshair_outlinethickness\n") == std::wstring::npos) globals::config->outlineThickness = config_default.outlineThickness;
+                    if (foundConVars.find(L"cl_crosshaircolor_r\n") == std::wstring::npos) globals::config->red = config_default.red;
+                    if (foundConVars.find(L"cl_crosshaircolor_g\n") == std::wstring::npos) globals::config->green = config_default.green;
+                    if (foundConVars.find(L"cl_crosshaircolor_b\n") == std::wstring::npos) globals::config->blue = config_default.blue;
+                    if (foundConVars.find(L"cl_crosshairalpha\n") == std::wstring::npos) globals::config->alpha = config_default.alpha;
+                    //if (foundConVars.find(L"cl_crosshair_dynamic_splitdist\n") == std::wstring::npos) globals::config->dynamicSplitDist = config_default.dynamicSplitDist;
+                    //if (foundConVars.find(L"cl_fixedcrosshairgap\n") == std::wstring::npos) globals::config->fixedCrosshairGap = config_default.fixedCrosshairGap;
+                    if (foundConVars.find(L"cl_crosshaircolor\n") == std::wstring::npos) globals::config->color = config_default.color;
+                    if (foundConVars.find(L"cl_crosshair_drawoutline\n") == std::wstring::npos) globals::config->drawOutline = config_default.drawOutline;
+                    //if (foundConVars.find(L"cl_crosshair_dynamic_splitalpha_innermod\n") == std::wstring::npos) globals::config->dynamicSplitAlphaInnerMod = config_default.dynamicSplitAlphaInnerMod;
+                    //if (foundConVars.find(L"cl_crosshair_dynamic_splitalpha_outermod\n") == std::wstring::npos) globals::config->dynamicSplitAlphaOuterMod = config_default.dynamicSplitAlphaOuterMod;
+                    //if (foundConVars.find(L"cl_crosshair_dynamic_maxdist_splitratio\n") == std::wstring::npos) globals::config->dynamicMaxDistSplitRatio = config_default.dynamicMaxDistSplitRatio;
+                    if (foundConVars.find(L"cl_crosshairthickness\n") == std::wstring::npos) globals::config->thickness = config_default.thickness;
+                    if (foundConVars.find(L"cl_crosshairdot\n") == std::wstring::npos) globals::config->dot = config_default.dot;
+                    //if (foundConVars.find(L"cl_crosshairgap_useweaponvalue\n") == std::wstring::npos) globals::config->gapUseWeaponValue = config_default.gapUseWeaponValue;
+                    //if (foundConVars.find(L"cl_crosshairusealpha\n") == std::wstring::npos) globals::config->useAlpha = config_default.useAlpha;
+                    if (foundConVars.find(L"cl_crosshair_t\n") == std::wstring::npos) globals::config->tStyle = config_default.tStyle;
+                    if (foundConVars.find(L"cl_crosshairstyle\n") == std::wstring::npos) globals::config->style = config_default.style;
+                    if (foundConVars.find(L"cl_crosshairsize\n") == std::wstring::npos) globals::config->size = config_default.size;
+                    if (foundConVars.find(L"sensitivity\n") == std::wstring::npos) globals::config->sensitivity = config_default.sensitivity;
+                    if (foundConVars.find(L"zoom_sensitivity_ratio\n") == std::wstring::npos) globals::config->zoomSensitivity = config_default.zoomSensitivity;
+                    if (foundConVars.find(L"m_yaw\n") == std::wstring::npos) globals::config->yaw = config_default.yaw;
 
-                        //SteamTools::printCrosshairSettings(*globals::config);
-                        //globals::configUpdaterState = false;
-                    }
-                }
-
-                for (const auto& line : *newLines) {
-                    if (line.find(L"Server confirmed all players") != std::wstring::npos) { // Auto Accept
-                        foundMatch = true;
-                    }
-                    else if (line.find(L"Misc: rate ") != std::wstring::npos && line.find(L" latency ") != std::wstring::npos) { // Ping
-                        if (std::regex_search(line, match, regexPing) && match.size() > 1) {
-                            globals::cs2_ping = std::stoi(match[1].str());
-                        }
-                    }
-                    else if (line.find(L"[*] ErScripts Bind Initalization") != std::wstring::npos) { // If ErScripts configs binds set
-                        bindsInit = true;
-                    }
-                    else if (line.find(L"[Client] source   : slot ") != std::wstring::npos) {
-                        globals::localPlayerSlotNumber = std::stoi(line.substr(line.find(L"slot ") + wcslen(L"slot ")));
-                    }
+                    //SteamTools::printCrosshairSettings(*globals::config);
+                    //globals::configUpdaterState = false;
                 }
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
-        }
 
-        monitor.stop();
-        Logger::logInfo("Stop CS2 console.log monitoring");
-    }).detach();
+            for (const auto& line : *newLines) {
+                if (line.find(L"Server confirmed all players") != std::wstring::npos) { // Auto Accept
+                    foundMatch = true;
+                }
+                else if (line.find(L"Misc: rate ") != std::wstring::npos && line.find(L" latency ") != std::wstring::npos) { // Ping
+                    if (std::regex_search(line, match, regexPing) && match.size() > 1) {
+                        globals::cs2_ping = std::stoi(match[1].str());
+                    }
+                }
+                else if (line.find(L"[*] ErScripts Bind Initalization") != std::wstring::npos) { // If ErScripts configs binds set
+                    bindsInit = true;
+                }
+                else if (line.find(L"[Client] source   : slot ") != std::wstring::npos) {
+                    globals::localPlayerSlotNumber = std::stoi(line.substr(line.find(L"slot ") + wcslen(L"slot ")));
+                }
+            }
+        }
 }
 
 
@@ -424,8 +413,6 @@ void ErScripts::InitBinds() {
                 break;
             }
         }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     if (globals::finish || !bindsInit) {

@@ -1,18 +1,10 @@
 #include "ErScripts.h"
-
 void ErScripts::KillSay() {
-    std::thread([this]() {
-        int oldKills = globals::localPlayerKills;
-        while (!globals::finish) {
-            if (cfg->killSayState) {
-                if (globals::localPlayerKills != oldKills) {
-                    if (globals::localPlayerKills > oldKills)
-                        CommandsSender(8, std::format("say {}", cfg->killSayText));
-                    oldKills = globals::localPlayerKills;
-                }
-            }
-
-            std::this_thread::sleep_for(std::chrono::microseconds(15625));
+    if (cfg->killSayState) {
+        if (globals::localPlayerKills != oldKillsSay) {
+            if (globals::localPlayerKills > oldKillsSay)
+                CommandsSender(8, std::format("say {}", cfg->killSayText));
+            oldKillsSay = globals::localPlayerKills;
         }
-    }).detach();
+    }
 }
